@@ -593,6 +593,8 @@ const normalizedRequirement = normalize(requirement)
 
 const exactPhraseMatches = [
   'packaged drinking water',
+  'packaged water',
+  'drinking water',
   'natural mineral water',
   'food hygiene',
   'food safety',
