@@ -1,24 +1,10 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Inter, IBM_Plex_Mono } from 'next/font/google'
 import { Suspense } from 'react'
 import { ThemeProvider } from '@/components/theme-provider'
 import { SiteNavbar } from '@/components/site-navbar'
 import { SiteFooter } from '@/components/site-footer'
 import './globals.css'
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-})
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-plex-mono',
-  display: 'swap',
-})
 
 export const metadata: Metadata = {
   title: {
@@ -55,7 +41,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${plexMono.variable} bg-background`}
+      className="bg-background"
     >
       <body className="font-sans antialiased">
         <ThemeProvider
@@ -68,10 +54,13 @@ export default function RootLayout({
             <Suspense fallback={null}>
               <SiteNavbar />
             </Suspense>
+
             <main className="flex-1">{children}</main>
+
             <SiteFooter />
           </div>
         </ThemeProvider>
+
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
