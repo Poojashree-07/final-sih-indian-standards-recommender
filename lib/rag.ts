@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai'
+import { getGroqClient } from '@/lib/groq'
 
 export type RetrievedEvidence = {
   source: string
@@ -11,20 +11,14 @@ const MAX_EVIDENCE = 3
 export async function retrieveEvidence(
   code: string,
 ): Promise<RetrievedEvidence[]> {
-  const apiKey = process.env.GEMINI_API_KEY
+  const groq = getGroqClient()
 
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not configured.')
-  }
-
-  const ai = new GoogleGenAI({
-    apiKey,
-  })
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3.6-flash',
-
-    contents: `
+  const completion = await groq.chat.completions.create({
+    model: 'groq/compound',
+    messages: [
+      {
+        role: 'user',
+        content: `
 Find reliable public web information about this exact Indian Standard:
 
 ${code}
@@ -50,45 +44,30 @@ For information that cannot be verified, say:
 
 Return a concise factual summary.
 `,
-
-    config: {
-      tools: [
-        {
-          googleSearch: {},
-        },
-      ],
-    },
+      },
+    ],
   })
 
-  const text = response.text?.trim() || ''
-
-  const chunks =
-    response.candidates?.[0]?.groundingMetadata
-      ?.groundingChunks || []
+  const text = completion.choices[0]?.message?.content?.trim() || ''
+  const executedTools = completion.choices[0]?.message?.executed_tools || []
 
   const evidence: RetrievedEvidence[] = []
 
-  for (const chunk of chunks) {
-    const web = chunk.web
-
-    if (!web?.uri) {
-      continue
+  for (const tool of executedTools) {
+    const results = tool.search_results?.results || []
+    for (const result of results) {
+      if (!result.url) continue
+      evidence.push({
+        source: result.title || 'Web source',
+        content: text,
+        url: result.url,
+      })
+      if (evidence.length >= MAX_EVIDENCE) break
     }
-
-    evidence.push({
-      source: web.title || 'Web source',
-      content: text,
-      url: web.uri,
-    })
-
-    if (evidence.length >= MAX_EVIDENCE) {
-      break
-    }
+    if (evidence.length >= MAX_EVIDENCE) break
   }
 
   return Array.from(
-    new Map(
-      evidence.map((item) => [item.url, item]),
-    ).values(),
+    new Map(evidence.map((item) => [item.url, item])).values(),
   )
 }

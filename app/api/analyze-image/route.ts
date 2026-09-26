@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+import { getGroqClient } from '@/lib/groq'
 
 export async function POST(request: Request) {
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json(
-        { error: 'Gemini API key is not configured.' },
-        { status: 500 },
-      )
-    }
+    const groq = getGroqClient()
 
     const formData = await request.formData()
     const image = formData.get('image')
@@ -31,10 +24,7 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await image.arrayBuffer())
     const base64Image = buffer.toString('base64')
-
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-3.5-flash-lite',
-    })
+    const dataUrl = `data:${image.type};base64,${base64Image}`
 
     const prompt = `
 You are assisting an Indian Standards recommendation system.
@@ -57,33 +47,37 @@ Return a concise natural-language procurement requirement that can be used to se
 If the image does not contain enough useful information, clearly say so.
 `
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          mimeType: image.type,
-          data: base64Image,
-        },
-      },
-      prompt,
-    ])
+    const completion = await groq.chat.completions.create({
+        model: 'qwen/qwen3.8-27b',
 
-    const response = result.response
-    const extractedRequirement = response.text().trim()
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+    })
+
+    const extractedRequirement =
+      completion.choices[0]?.message?.content?.trim() || ''
 
     return NextResponse.json({
       requirement: extractedRequirement,
     })
-      } catch (error) {
-      console.error('Image analysis error:', error)
+  } catch (error) {
+    console.error('Image analysis error:', error)
 
-      return NextResponse.json(
-        {
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Unknown Gemini error',
-        },
-        { status: 500 },
-      )
-    }
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Unknown Groq error',
+      },
+      { status: 500 },
+    )
+  }
 }
