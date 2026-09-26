@@ -60,7 +60,7 @@ def semantic_search():
 
     return jsonify({
         "query": query,
-        "results": results[:10]
+        "results": results[:100]
     })
 
 
