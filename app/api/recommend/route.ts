@@ -43,8 +43,10 @@ export async function POST(request: Request) {
     | undefined
 
   try {
-    const semanticResponse = await axios.post(
-      'http://127.0.0.1:5000/semantic-search',
+    const SEMANTIC_API_BASE = process.env.SEMANTIC_API_URL || 'http://127.0.0.1:5000'
+
+const semanticResponse = await axios.post(
+  `${SEMANTIC_API_BASE}/semantic-search`,
       {
         query: requirement.trim(),
       },
