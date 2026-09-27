@@ -1,5 +1,6 @@
+```tsx id="f7k2qm"
 import Link from 'next/link'
-import { ShieldCheck } from 'lucide-react'
+import { ArrowUpRight, ShieldCheck } from 'lucide-react'
 import { Disclaimer } from '@/components/disclaimer'
 
 const FOOTER_LINKS = [
@@ -11,40 +12,93 @@ const FOOTER_LINKS = [
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-card">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <Disclaimer className="mb-8" />
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <Disclaimer className="mb-10" />
 
-        <div className="flex flex-col gap-6 border-t border-border pt-8 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <ShieldCheck className="size-4" />
-            </span>
-            <div className="leading-tight">
-              <p className="text-sm font-semibold">StandardsIQ</p>
-              <p className="text-xs text-muted-foreground">
-                AI-assisted Indian Standards recommendation engine · Prototype
+        <div className="border-t border-border pt-8">
+          <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+            {/* Brand */}
+            <div className="max-w-md">
+              <Link
+                href="/"
+                className="group inline-flex items-center gap-3"
+                aria-label="StandardsIQ home"
+              >
+                <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
+                  <ShieldCheck className="size-5" />
+                </span>
+
+                <span className="leading-tight">
+                  <span className="block text-sm font-bold">
+                    StandardsIQ
+                  </span>
+
+                  <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Standards Intelligence
+                  </span>
+                </span>
+              </Link>
+
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                AI-assisted Indian Standards recommendation engine designed
+                to help users discover potentially relevant standards for
+                procurement requirements.
               </p>
             </div>
+
+            {/* Navigation */}
+            <nav
+              className="flex flex-col gap-3"
+              aria-label="Footer navigation"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                Explore
+              </p>
+
+              <div className="flex flex-col gap-2.5">
+                {FOOTER_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="group inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {link.label}
+                    <ArrowUpRight className="size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+                  </Link>
+                ))}
+              </div>
+            </nav>
           </div>
 
-          <nav className="flex flex-wrap items-center gap-x-6 gap-y-2" aria-label="Footer">
-            {FOOTER_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+          {/* Prototype Notice */}
+          <div className="mt-10 border-t border-border pt-6">
+            <p className="text-xs leading-5 text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                Smart India Hackathon prototype.
+              </span>{' '}
+              All IS codes shown are fictional placeholders and do not
+              represent real Bureau of Indian Standards publications.
+            </p>
+          </div>
         </div>
-
-        <p className="mt-6 text-xs text-muted-foreground">
-          Smart India Hackathon prototype. All IS codes shown are fictional placeholders and do
-          not represent real Bureau of Indian Standards publications.
-        </p>
       </div>
     </footer>
   )
 }
+```
+
+Then push:
+
+```bash id="b7v1xn"
+git add components/site-footer.tsx
+```
+
+```bash id="f2k8rm"
+git commit -m "Polish footer frontend"
+```
+
+```bash id="q5d3tp"
+git push origin frontend
+```
+
+Run them **one at a time**.
