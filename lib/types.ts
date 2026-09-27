@@ -35,9 +35,36 @@ export interface RequirementAnalysis {
   keywords: string[]
 }
 
+/**
+ * Status of an individual requirement during gap analysis.
+ */
+export type RequirementGapStatus =
+  | 'available'
+  | 'unavailable'
+  | 'needs-verification'
+
+/**
+ * One requested requirement and how it is represented
+ * in the currently available standard dataset.
+ */
+export interface RequirementGapItem {
+  field: string
+  requestedValue: string
+  status: RequirementGapStatus
+  explanation: string
+}
+
+/**
+ * Explicit comparison between the user's requirement and
+ * information represented in the available dataset.
+ *
+ * This is NOT a compliance determination.
+ */
 export interface RequirementGapAnalysis {
+  items: RequirementGapItem[]
   verified: string[]
   unavailable: string[]
+  needsVerification: string[]
 }
 
 export interface StandardSection {
