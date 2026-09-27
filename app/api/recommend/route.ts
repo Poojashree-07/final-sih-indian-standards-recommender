@@ -6,6 +6,7 @@ import {
 } from '@/lib/recommend-engine'
 import { retrieveEvidence } from '@/lib/rag'
 import type { RecommendResponse } from '@/lib/types'
+import { rewriteExplanation } from '@/lib/explain'
 
 export async function POST(request: Request) {
   let body: unknown
@@ -102,6 +103,21 @@ for (const recommendation of recommendations) {
     )
 
     const mergedTechnicalRequirements = { ...recommendation.technicalRequirements }
+    let whyRecommended = recommendation.whyRecommended
+try {
+  const rewritten = await rewriteExplanation(
+    recommendation.code,
+    recommendation.title,
+    recommendation.whyRecommended,
+    webEvidence[0]?.content,
+  )
+  if (rewritten) {
+    whyRecommended = rewritten
+  }
+} catch (err) {
+  console.error(`Explanation rewrite failed for ${recommendation.code}:`, err)
+}
+console.log(`FINAL whyRecommended for ${recommendation.code}:`, whyRecommended)
 
     ;(['material', 'dimensions', 'performance', 'testing', 'marking'] as const).forEach(
       (field) => {
@@ -114,9 +130,10 @@ for (const recommendation of recommendations) {
 
     if (webEvidence.length === 0) {
       recommendationsWithWebEvidence.push({
-        ...recommendation,
-        technicalRequirements: mergedTechnicalRequirements,
-      })
+  ...recommendation,
+  whyRecommended,
+  technicalRequirements: mergedTechnicalRequirements,
+})
       continue
     }
 
@@ -126,10 +143,11 @@ for (const recommendation of recommendations) {
       evidence: item.url,
     }))
 
-    recommendationsWithWebEvidence.push({
-      ...recommendation,
-      technicalRequirements: mergedTechnicalRequirements,
-      relevantSections: [...recommendation.relevantSections, ...webSections],
+   recommendationsWithWebEvidence.push({
+  ...recommendation,
+  whyRecommended,
+  technicalRequirements: mergedTechnicalRequirements,
+  relevantSections: [...recommendation.relevantSections, ...webSections],
       evidence: {
         ...recommendation.evidence,
         supportingSections: [
