@@ -40,9 +40,10 @@ export function SiteFooter() {
           </nav>
         </div>
 
-        <p className="mt-6 text-xs text-muted-foreground">
-          Smart India Hackathon prototype. All IS codes shown are fictional placeholders and do
-          not represent real Bureau of Indian Standards publications.
+                <p className="mt-6 text-xs text-muted-foreground">
+          Smart India Hackathon prototype. Standards data is sourced from publicly available
+          Indian Standards metadata for demonstration purposes; always verify against official
+          BIS publications before procurement or compliance decisions.
         </p>
       </div>
     </footer>
