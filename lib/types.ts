@@ -34,10 +34,25 @@ export interface RequirementAnalysis {
   otherTechnicalProperties: string
   keywords: string[]
 }
+export type RequirementGapStatus =
+  | 'available'
+  | 'unavailable'
+  | 'needs-verification'
+
+export interface RequirementGapItem {
+  field: string
+  requestedValue: string
+  status: RequirementGapStatus
+  explanation: string
+}
 
 export interface RequirementGapAnalysis {
+  items: RequirementGapItem[]
+
+  // Kept for compatibility with the existing evidence panel
   verified: string[]
   unavailable: string[]
+  needsVerification: string[]
 }
 
 export interface StandardSection {
