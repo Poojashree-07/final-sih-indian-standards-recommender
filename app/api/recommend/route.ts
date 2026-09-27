@@ -92,64 +92,61 @@ const semanticResponse = await axios.post(
   )
 
   // Retrieve web evidence one recommendation at a time
-  const recommendationsWithWebEvidence = []
+ const recommendationsWithWebEvidence = []
+const NOT_AVAILABLE = 'Not available in the current dataset.'
 
-  for (const recommendation of recommendations) {
-    try {
-      const webEvidence = await retrieveEvidence(
-        recommendation.code,
-      )
+for (const recommendation of recommendations) {
+  try {
+    const { evidence: webEvidence, technicalDetails } = await retrieveEvidence(
+      recommendation.code,
+    )
 
-      if (webEvidence.length === 0) {
-        recommendationsWithWebEvidence.push(
-          recommendation,
-        )
-        continue
-      }
+    const mergedTechnicalRequirements = { ...recommendation.technicalRequirements }
 
-      const webSections = webEvidence.map((item) => ({
-        title: item.source,
-        content: item.content,
-        evidence: item.url,
-      }))
+    ;(['material', 'dimensions', 'performance', 'testing', 'marking'] as const).forEach(
+      (field) => {
+        if (mergedTechnicalRequirements[field] === NOT_AVAILABLE && technicalDetails[field]) {
+          mergedTechnicalRequirements[field] =
+            `${technicalDetails[field]} (from retrieved web evidence — not dataset-verified)`
+        }
+      },
+    )
 
+    if (webEvidence.length === 0) {
       recommendationsWithWebEvidence.push({
         ...recommendation,
-
-        relevantSections: [
-          ...recommendation.relevantSections,
-          ...webSections,
-        ],
-
-        evidence: {
-          ...recommendation.evidence,
-
-          supportingSections: [
-            ...recommendation.evidence.supportingSections,
-            ...webEvidence.map(
-              (item) => item.url,
-            ),
-          ],
-
-          extractedRequirements: [
-            ...recommendation.evidence.extractedRequirements,
-            ...webEvidence.map(
-              (item) => item.content,
-            ),
-          ],
-        },
+        technicalRequirements: mergedTechnicalRequirements,
       })
-    } catch (error) {
-      console.error(
-        `Web retrieval failed for ${recommendation.code}:`,
-        error,
-      )
-
-      recommendationsWithWebEvidence.push(
-        recommendation,
-      )
+      continue
     }
+
+    const webSections = webEvidence.map((item) => ({
+      title: item.source,
+      content: item.content,
+      evidence: item.url,
+    }))
+
+    recommendationsWithWebEvidence.push({
+      ...recommendation,
+      technicalRequirements: mergedTechnicalRequirements,
+      relevantSections: [...recommendation.relevantSections, ...webSections],
+      evidence: {
+        ...recommendation.evidence,
+        supportingSections: [
+          ...recommendation.evidence.supportingSections,
+          ...webEvidence.map((item) => item.url),
+        ],
+        extractedRequirements: [
+          ...recommendation.evidence.extractedRequirements,
+          ...webEvidence.map((item) => item.content),
+        ],
+      },
+    })
+  } catch (error) {
+    console.error(`Web retrieval failed for ${recommendation.code}:`, error)
+    recommendationsWithWebEvidence.push(recommendation)
   }
+}
 
   const response: RecommendResponse = {
     query: requirement.trim(),
