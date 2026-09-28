@@ -988,10 +988,12 @@ function createRequirementGap(
     )
   }
 
-  return {
-    verified: Array.from(new Set(verified)),
-    unavailable: Array.from(new Set(unavailable)),
-  }
+ return {
+  items: [],
+  verified: Array.from(new Set(verified)),
+  unavailable: Array.from(new Set(unavailable)),
+  needsVerification: [],
+}
 }
 
 function buildExplanation(

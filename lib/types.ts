@@ -35,9 +35,23 @@ export interface RequirementAnalysis {
   keywords: string[]
 }
 
+export type RequirementGapStatus =
+  | 'available'
+  | 'unavailable'
+  | 'needs-verification'
+
+export interface RequirementGapItem {
+  field: string
+  requestedValue: string
+  status: RequirementGapStatus
+  explanation: string
+}
+
 export interface RequirementGapAnalysis {
+  items: RequirementGapItem[]
   verified: string[]
   unavailable: string[]
+  needsVerification: string[]
 }
 
 export interface StandardSection {
