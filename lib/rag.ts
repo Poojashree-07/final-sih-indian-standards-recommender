@@ -6,68 +6,123 @@ export type RetrievedEvidence = {
   url: string
 }
 
-const MAX_EVIDENCE = 3
+export type TechnicalDetails = {
+  material?: string
+  dimensions?: string
+  performance?: string
+  testing?: string
+  marking?: string
+}
 
-export async function retrieveEvidence(
-  code: string,
-): Promise<RetrievedEvidence[]> {
+export type RagResult = {
+  evidence: RetrievedEvidence[]
+  technicalDetails: TechnicalDetails
+}
+
+type TavilyResult = {
+  title: string
+  url: string
+  content: string
+}
+
+async function searchTavily(query: string): Promise<TavilyResult[]> {
+  const response = await fetch('https://api.tavily.com/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      api_key: process.env.TAVILY_API_KEY,
+      query,
+      max_results: 3,
+      search_depth: 'basic',
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Tavily search failed: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return data.results || []
+}
+
+export async function retrieveEvidence(code: string): Promise<RagResult> {
+  const results = await searchTavily(`${code} Indian Standard BIS specification`)
+
+  if (results.length === 0) {
+    return { evidence: [], technicalDetails: {} }
+  }
+
   const groq = getGroqClient()
 
+  const sourcesText = results
+    .map((r, i) => `Source ${i + 1} (${r.title}): ${r.content}`)
+    .join('\n\n')
+
   const completion = await groq.chat.completions.create({
-    model: 'groq/compound',
+    model: 'openai/gpt-oss-120b',
     messages: [
       {
         role: 'user',
         content: `
-Find reliable public web information about this exact Indian Standard:
+You are given real web search results about an Indian Standard (${code}).
 
-${code}
+${sourcesText}
 
-Prioritize official BIS and Indian government sources.
+Using ONLY the information in these sources, respond with a valid JSON object 
+in exactly this shape, no markdown, no extra text:
 
-Extract ONLY information supported by the retrieved web sources.
+{
+  "summary": "2-3 sentence factual summary of scope/application/material, or empty string if nothing useful found",
+  "material": "material mentioned in sources, or null if not mentioned",
+  "dimensions": "dimensions/sizes mentioned in sources, or null if not mentioned",
+  "performance": "performance/strength requirements mentioned in sources, or null if not mentioned",
+  "testing": "testing methods mentioned in sources, or null if not mentioned",
+  "marking": "marking requirements mentioned in sources, or null if not mentioned"
+}
 
-Check only these fields:
-- title
-- scope
-- application
-- material
-- dimensions
-- performance requirements
-- testing requirements
-- marking requirements
-
-Do not invent technical values.
-
-For information that cannot be verified, say:
-"Not verified from the available web sources."
-
-Return a concise factual summary.
+Do not invent any value not explicitly present in the sources. Use null 
+for anything not clearly stated.
 `,
       },
     ],
+    response_format: { type: 'json_object' },
   })
 
-  const text = completion.choices[0]?.message?.content?.trim() || ''
-  const executedTools = completion.choices[0]?.message?.executed_tools || []
+  const raw = completion.choices[0]?.message?.content?.trim() || '{}'
 
-  const evidence: RetrievedEvidence[] = []
+  let parsed: {
+    summary?: string
+    material?: string | null
+    dimensions?: string | null
+    performance?: string | null
+    testing?: string | null
+    marking?: string | null
+  } = {}
 
-  for (const tool of executedTools) {
-    const results = tool.search_results?.results || []
-    for (const result of results) {
-      if (!result.url) continue
-      evidence.push({
-        source: result.title || 'Web source',
-        content: text,
-        url: result.url,
-      })
-      if (evidence.length >= MAX_EVIDENCE) break
-    }
-    if (evidence.length >= MAX_EVIDENCE) break
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    parsed = {}
   }
 
-  return Array.from(
-    new Map(evidence.map((item) => [item.url, item])).values(),
-  )
+  const summary = parsed.summary?.trim() || ''
+
+  const evidence: RetrievedEvidence[] = summary
+    ? [
+        {
+          source: results[0]?.title || 'Web source',
+          content: summary,
+          url: results[0]?.url || '',
+        },
+      ]
+    : []
+
+  const technicalDetails: TechnicalDetails = {}
+  if (parsed.material) technicalDetails.material = parsed.material
+  if (parsed.dimensions) technicalDetails.dimensions = parsed.dimensions
+  if (parsed.performance) technicalDetails.performance = parsed.performance
+  if (parsed.testing) technicalDetails.testing = parsed.testing
+  if (parsed.marking) technicalDetails.marking = parsed.marking
+
+  return { evidence, technicalDetails }
 }

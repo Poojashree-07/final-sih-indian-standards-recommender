@@ -6,6 +6,7 @@ import {
 } from '@/lib/recommend-engine'
 import { retrieveEvidence } from '@/lib/rag'
 import type { RecommendResponse } from '@/lib/types'
+import { rewriteExplanation } from '@/lib/explain'
 
 export async function POST(request: Request) {
   let body: unknown
@@ -43,8 +44,10 @@ export async function POST(request: Request) {
     | undefined
 
   try {
-    const semanticResponse = await axios.post(
-      'http://127.0.0.1:5000/semantic-search',
+    const SEMANTIC_API_BASE = process.env.SEMANTIC_API_URL || 'http://127.0.0.1:5000'
+
+const semanticResponse = await axios.post(
+  `${SEMANTIC_API_BASE}/semantic-search`,
       {
         query: requirement.trim(),
       },
@@ -90,64 +93,78 @@ export async function POST(request: Request) {
   )
 
   // Retrieve web evidence one recommendation at a time
-  const recommendationsWithWebEvidence = []
+ const recommendationsWithWebEvidence = []
+const NOT_AVAILABLE = 'Not available in the current dataset.'
 
-  for (const recommendation of recommendations) {
-    try {
-      const webEvidence = await retrieveEvidence(
-        recommendation.code,
-      )
+for (const recommendation of recommendations) {
+  try {
+    const { evidence: webEvidence, technicalDetails } = await retrieveEvidence(
+      recommendation.code,
+    )
 
-      if (webEvidence.length === 0) {
-        recommendationsWithWebEvidence.push(
-          recommendation,
-        )
-        continue
-      }
-
-      const webSections = webEvidence.map((item) => ({
-        title: item.source,
-        content: item.content,
-        evidence: item.url,
-      }))
-
-      recommendationsWithWebEvidence.push({
-        ...recommendation,
-
-        relevantSections: [
-          ...recommendation.relevantSections,
-          ...webSections,
-        ],
-
-        evidence: {
-          ...recommendation.evidence,
-
-          supportingSections: [
-            ...recommendation.evidence.supportingSections,
-            ...webEvidence.map(
-              (item) => item.url,
-            ),
-          ],
-
-          extractedRequirements: [
-            ...recommendation.evidence.extractedRequirements,
-            ...webEvidence.map(
-              (item) => item.content,
-            ),
-          ],
-        },
-      })
-    } catch (error) {
-      console.error(
-        `Web retrieval failed for ${recommendation.code}:`,
-        error,
-      )
-
-      recommendationsWithWebEvidence.push(
-        recommendation,
-      )
-    }
+    const mergedTechnicalRequirements = { ...recommendation.technicalRequirements }
+    let whyRecommended = recommendation.whyRecommended
+try {
+  const rewritten = await rewriteExplanation(
+    recommendation.code,
+    recommendation.title,
+    recommendation.whyRecommended,
+    webEvidence[0]?.content,
+  )
+  if (rewritten) {
+    whyRecommended = rewritten
   }
+} catch (err) {
+  console.error(`Explanation rewrite failed for ${recommendation.code}:`, err)
+}
+console.log(`FINAL whyRecommended for ${recommendation.code}:`, whyRecommended)
+
+    ;(['material', 'dimensions', 'performance', 'testing', 'marking'] as const).forEach(
+      (field) => {
+        if (mergedTechnicalRequirements[field] === NOT_AVAILABLE && technicalDetails[field]) {
+          mergedTechnicalRequirements[field] =
+            `${technicalDetails[field]} (from retrieved web evidence — not dataset-verified)`
+        }
+      },
+    )
+
+    if (webEvidence.length === 0) {
+      recommendationsWithWebEvidence.push({
+  ...recommendation,
+  whyRecommended,
+  technicalRequirements: mergedTechnicalRequirements,
+})
+      continue
+    }
+
+    const webSections = webEvidence.map((item) => ({
+      title: item.source,
+      content: item.content,
+      evidence: item.url,
+    }))
+
+   recommendationsWithWebEvidence.push({
+  ...recommendation,
+  whyRecommended,
+  technicalRequirements: mergedTechnicalRequirements,
+  relevantSections: [...recommendation.relevantSections, ...webSections],
+      evidence: {
+        ...recommendation.evidence,
+        supportingSections: [
+          ...recommendation.evidence.supportingSections,
+          ...webEvidence.map((item) => item.url),
+        ],
+        extractedRequirements: [
+          ...recommendation.evidence.extractedRequirements,
+          ...webEvidence.map((item) => item.content),
+        ],
+      },
+    })
+  } catch (error) {
+    console.error(`Web retrieval failed for ${recommendation.code}:`, error)
+    recommendationsWithWebEvidence.push(recommendation)
+  }
+}
 
   const response: RecommendResponse = {
     query: requirement.trim(),
